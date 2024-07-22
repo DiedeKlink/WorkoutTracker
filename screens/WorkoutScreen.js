@@ -1,24 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, Button, FlatList, StyleSheet, Modal } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, Button, FlatList, Modal, StyleSheet } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { Picker } from '@react-native-picker/picker';
+import { useWorkouts } from '../context/WorkoutContext'; // Zorg ervoor dat deze import correct is
+
 
 const WorkoutScreen = ({ route, navigation }) => {
-  // Verkrijg de datum uit route params met een standaardwaarde als deze niet beschikbaar is
   const { date } = route.params || {};
-  const [workouts, setWorkouts] = useState({});
+  const initialDate = date || new Date().toISOString().split('T')[0];
   const [modalVisible, setModalVisible] = useState(false);
   const [split, setSplit] = useState('');
-  const [selectedDate, setSelectedDate] = useState(date || new Date().toISOString().split('T')[0]); // Standaard naar vandaag
+  const [selectedDate, setSelectedDate] = useState(initialDate);
+  const { workouts, addWorkout } = useWorkouts(); // Zorg ervoor dat useWorkouts correct werkt
 
-  // Update de geselecteerde datum indien de route-params veranderen
-  useEffect(() => {
-    if (date) {
-      setSelectedDate(date);
-    }
-  }, [date]);
+  console.log('addWorkout:', addWorkout); // Debugging log
 
-  const addWorkout = () => {
+  const addNewWorkout = () => {
     if (!split) {
       alert('Please select a split option.');
       return;
@@ -27,41 +24,35 @@ const WorkoutScreen = ({ route, navigation }) => {
     const newWorkout = {
       date: selectedDate,
       split: split,
+      exercises: [],
     };
 
-    setWorkouts(prevWorkouts => ({
-      ...prevWorkouts,
-      [selectedDate]: [...(prevWorkouts[selectedDate] || []), newWorkout],
-    }));
+    if (typeof addWorkout === 'function') {
+      addWorkout(selectedDate, newWorkout);
+    } else {
+      console.error('addWorkout is not a function');
+    }
 
     setModalVisible(false);
-    navigation.navigate('WorkoutEdit', { date: selectedDate, split: split, workout: newWorkout });
+    navigation.navigate('WorkoutEditScreen', { date: selectedDate, workout: newWorkout });
   };
 
   const removeWorkout = (workoutToRemove) => {
-    setWorkouts(prevWorkouts => {
-      const updatedWorkouts = (prevWorkouts[selectedDate] || []).filter(workout => workout !== workoutToRemove);
-      return {
-        ...prevWorkouts,
-        [selectedDate]: updatedWorkouts,
-      };
-    });
+    // Implement removal logic here
   };
 
   const renderWorkout = ({ item }) => (
     <View style={styles.workoutContainer}>
       <Text style={styles.workoutText}>Split: {item.split}</Text>
-      <View style={styles.buttonContainer}>
-        <Button
-          title="Edit"
-          onPress={() => navigation.navigate('WorkoutEdit', { date: selectedDate, split: item.split, workout: item })}
-        />
-        <Button
-          title="Remove"
-          onPress={() => removeWorkout(item)}
-          color="#FF6347"
-        />
-      </View>
+      <Button
+        title="Edit"
+        onPress={() => navigation.navigate('WorkoutEditScreen', { date: selectedDate, workout: item })}
+      />
+      <Button
+        title="Remove"
+        onPress={() => removeWorkout(item)}
+        color="#FF6347"
+      />
     </View>
   );
 
@@ -78,14 +69,13 @@ const WorkoutScreen = ({ route, navigation }) => {
         }}
       />
       <FlatList
-        data={workouts[selectedDate] || []}
+        data={workouts[selectedDate] || []} // Zorg ervoor dat workouts niet undefined is
         renderItem={renderWorkout}
         keyExtractor={(item, index) => index.toString()}
         style={styles.list}
       />
       <Button title="Add Workout" onPress={() => setModalVisible(true)} />
 
-      {/* Modal for Adding Workout */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -107,7 +97,7 @@ const WorkoutScreen = ({ route, navigation }) => {
               <Picker.Item label="Legs" value="Legs" />
             </Picker>
             <View style={styles.buttonContainer}>
-              <Button title="Create Workout" onPress={addWorkout} />
+              <Button title="Create Workout" onPress={addNewWorkout} />
               <Button title="Cancel" onPress={() => setModalVisible(false)} color="#FF6347" />
             </View>
           </View>
@@ -116,6 +106,8 @@ const WorkoutScreen = ({ route, navigation }) => {
     </View>
   );
 };
+
+export default WorkoutScreen;
 
 const styles = StyleSheet.create({
   container: {
@@ -139,11 +131,6 @@ const styles = StyleSheet.create({
   },
   workoutText: {
     fontSize: 16,
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10,
   },
   modalBackground: {
     flex: 1,
@@ -180,6 +167,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 10,
   },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 15,
+  },
 });
 
-export default WorkoutScreen;
+

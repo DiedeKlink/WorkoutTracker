@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, Button, FlatList, StyleSheet, TextInput, Modal, TouchableOpacity } from 'react-native';
 import popularExercises from '../data/popularExercises';
+import { useWorkouts } from '../context/WorkoutContext';
 
 const WorkoutEditScreen = ({ route, navigation }) => {
-  const { date, split } = route.params;
-  const [workout, setWorkout] = useState({ split, exercises: [] });
+  const { date, workout } = route.params || {};
+  const [exercises, setExercises] = useState(workout.exercises || []);
   const [modalVisible, setModalVisible] = useState(false);
   const [exerciseName, setExerciseName] = useState('');
   const [reps, setReps] = useState('');
   const [weight, setWeight] = useState('');
   const [filteredExercises, setFilteredExercises] = useState([]);
+  const { updateWorkout } = useWorkouts();
 
   const addExercise = () => {
     if (!exerciseName || !reps || !weight) {
@@ -23,10 +25,7 @@ const WorkoutEditScreen = ({ route, navigation }) => {
       weight: parseFloat(weight),
     };
 
-    setWorkout(prevWorkout => ({
-      ...prevWorkout,
-      exercises: [...prevWorkout.exercises, newExercise],
-    }));
+    setExercises(prevExercises => [...prevExercises, newExercise]);
 
     setExerciseName('');
     setReps('');
@@ -59,16 +58,25 @@ const WorkoutEditScreen = ({ route, navigation }) => {
     </View>
   );
 
+  useEffect(() => {
+    if (updateWorkout) {
+      const updatedWorkout = { ...workout, exercises };
+      updateWorkout(date, updatedWorkout);
+    }
+  }, [exercises]);
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Workout for {date}</Text>
       <Text style={styles.splitText}>Split: {workout.split}</Text>
       <FlatList
-        data={workout.exercises}
+        data={exercises}
         renderItem={renderExercise}
         keyExtractor={(item, index) => index.toString()}
+        style={styles.list}
       />
-      <Button title="Add Exercise" onPress={() => setModalVisible(true)} style={styles.button} />
+      <Button title="Add Exercise" onPress={() => setModalVisible(true)} />
+
       <Modal
         animationType="slide"
         transparent={true}
@@ -77,44 +85,38 @@ const WorkoutEditScreen = ({ route, navigation }) => {
       >
         <View style={styles.modalBackground}>
           <View style={styles.modalView}>
-            <Text style={styles.modalTitle}>Add New Exercise</Text>
+            <Text style={styles.modalTitle}>Add Exercise</Text>
             <TextInput
-              style={styles.input}
               placeholder="Exercise Name"
               value={exerciseName}
               onChangeText={handleExerciseNameChange}
+              style={styles.input}
             />
             {filteredExercises.length > 0 && (
-              <FlatList
-                data={filteredExercises}
-                keyExtractor={(item) => item}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={styles.autocompleteItem}
-                    onPress={() => selectExercise(item)}
-                  >
-                    <Text style={styles.autocompleteText}>{item}</Text>
+              <View style={styles.dropdown}>
+                {filteredExercises.map((exercise, index) => (
+                  <TouchableOpacity key={index} onPress={() => selectExercise(exercise)}>
+                    <Text style={styles.dropdownItem}>{exercise}</Text>
                   </TouchableOpacity>
-                )}
-                style={styles.autocompleteContainer}
-              />
+                ))}
+              </View>
             )}
             <TextInput
-              style={styles.input}
               placeholder="Reps"
-              keyboardType="numeric"
               value={reps}
               onChangeText={setReps}
+              keyboardType="numeric"
+              style={styles.input}
             />
             <TextInput
-              style={styles.input}
               placeholder="Weight (kg)"
-              keyboardType="numeric"
               value={weight}
               onChangeText={setWeight}
+              keyboardType="numeric"
+              style={styles.input}
             />
             <View style={styles.buttonContainer}>
-              <Button title="Add Exercise" onPress={addExercise} />
+              <Button title="Add" onPress={addExercise} />
               <Button title="Cancel" onPress={() => setModalVisible(false)} color="#FF6347" />
             </View>
           </View>
@@ -133,11 +135,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: 20,
   },
   splitText: {
     fontSize: 18,
     marginBottom: 10,
+  },
+  list: {
+    marginTop: 20,
   },
   exerciseContainer: {
     backgroundColor: '#FFFFFF',
@@ -178,31 +183,27 @@ const styles = StyleSheet.create({
   },
   input: {
     width: '100%',
-    height: 45,
+    height: 40,
     borderColor: '#DDDDDD',
     borderWidth: 1,
     borderRadius: 10,
-    marginBottom: 15,
     paddingHorizontal: 10,
-    backgroundColor: '#F8F8F8',
-    fontSize: 16,
+    marginBottom: 15,
   },
-  autocompleteContainer: {
+  dropdown: {
     width: '100%',
     maxHeight: 150,
-    marginBottom: 15,
-    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
     borderColor: '#DDDDDD',
     borderWidth: 1,
-    backgroundColor: '#F8F8F8',
+    borderRadius: 10,
+    marginBottom: 15,
+    zIndex: 1,
   },
-  autocompleteItem: {
+  dropdownItem: {
     padding: 10,
     borderBottomColor: '#DDDDDD',
     borderBottomWidth: 1,
-  },
-  autocompleteText: {
-    fontSize: 16,
   },
   buttonContainer: {
     flexDirection: 'row',
