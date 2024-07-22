@@ -1,108 +1,116 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Button, FlatList, StyleSheet, Modal } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Calendar } from 'react-native-calendars';
 import { Picker } from '@react-native-picker/picker';
-import { useNavigation } from '@react-navigation/native';
 
-const WorkoutScreen = ({ route }) => {
+const WorkoutScreen = ({ route, navigation }) => {
+  // Verkrijg de datum uit route params met een standaardwaarde als deze niet beschikbaar is
   const { date } = route.params || {};
-  const [workout, setWorkout] = useState({});
+  const [workouts, setWorkouts] = useState({});
   const [modalVisible, setModalVisible] = useState(false);
-  const [split, setSplit] = useState('Push');
-  const [selectedDate, setSelectedDate] = useState(date ? new Date(date) : new Date());
-  const navigation = useNavigation();
+  const [split, setSplit] = useState('');
+  const [selectedDate, setSelectedDate] = useState(date || new Date().toISOString().split('T')[0]); // Standaard naar vandaag
 
+  // Update de geselecteerde datum indien de route-params veranderen
   useEffect(() => {
-    const loadWorkout = async () => {
-      try {
-        const savedWorkout = await AsyncStorage.getItem('workout');
-        if (savedWorkout !== null) {
-          setWorkout(JSON.parse(savedWorkout));
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    };
-
-    loadWorkout();
-  }, []);
+    if (date) {
+      setSelectedDate(date);
+    }
+  }, [date]);
 
   const addWorkout = () => {
-    const dateString = selectedDate.toISOString().split('T')[0];
-
-    // Create a new workout entry
-    const newWorkout = {
-      split,
-      exercises: [] // Initialize exercises as an empty array
-    };
-
-    // Update the workout state with the new workout entry
-    const updatedWorkout = {
-      ...workout,
-      [dateString]: [...(workout[dateString] || []), newWorkout]
-    };
-
-    setWorkout(updatedWorkout);
-    setModalVisible(false);
-
-    try {
-      AsyncStorage.setItem('workout', JSON.stringify(updatedWorkout));
-    } catch (e) {
-      console.error(e);
+    if (!split) {
+      alert('Please select a split option.');
+      return;
     }
 
-    navigation.navigate('WorkoutEdit', { date: dateString, split });
+    const newWorkout = {
+      date: selectedDate,
+      split: split,
+    };
+
+    setWorkouts(prevWorkouts => ({
+      ...prevWorkouts,
+      [selectedDate]: [...(prevWorkouts[selectedDate] || []), newWorkout],
+    }));
+
+    setModalVisible(false);
+    navigation.navigate('WorkoutEdit', { date: selectedDate, split: split, workout: newWorkout });
   };
 
-  const dateString = selectedDate.toISOString().split('T')[0];
+  const removeWorkout = (workoutToRemove) => {
+    setWorkouts(prevWorkouts => {
+      const updatedWorkouts = (prevWorkouts[selectedDate] || []).filter(workout => workout !== workoutToRemove);
+      return {
+        ...prevWorkouts,
+        [selectedDate]: updatedWorkouts,
+      };
+    });
+  };
+
+  const renderWorkout = ({ item }) => (
+    <View style={styles.workoutContainer}>
+      <Text style={styles.workoutText}>Split: {item.split}</Text>
+      <View style={styles.buttonContainer}>
+        <Button
+          title="Edit"
+          onPress={() => navigation.navigate('WorkoutEdit', { date: selectedDate, split: item.split, workout: item })}
+        />
+        <Button
+          title="Remove"
+          onPress={() => removeWorkout(item)}
+          color="#FF6347"
+        />
+      </View>
+    </View>
+  );
 
   return (
     <View style={styles.container}>
-      <Text style={styles.dateText}>Selected Date: {dateString}</Text>
-      <Button title="Add Workout" onPress={() => setModalVisible(true)} />
-      <FlatList
-        data={workout[dateString] || []} // Ensure data is always an array
-        renderItem={({ item, index }) => (
-          <View key={index} style={styles.workoutContainer}>
-            <Text style={styles.dateText}>Date: {dateString}</Text>
-            <Text style={styles.splitText}>Split: {item.split}</Text>
-            {(item.exercises || []).map((exercise, idx) => (
-              <View key={idx} style={styles.exerciseContainer}>
-                <Text style={styles.exerciseText}>
-                  {exercise.name} - {exercise.reps} reps - {exercise.weight} kg
-                </Text>
-              </View>
-            ))}
-            <Button
-              title="Edit Workout"
-              onPress={() => navigation.navigate('WorkoutEdit', { date: dateString, split: item.split, index })}
-            />
-          </View>
-        )}
-        keyExtractor={(item, index) => index.toString()}
+      <Calendar
+        current={selectedDate}
+        onDayPress={(day) => {
+          setSelectedDate(day.dateString);
+          navigation.setParams({ date: day.dateString });
+        }}
+        markedDates={{
+          [selectedDate]: { selected: true, selectedColor: '#00BFFF' }
+        }}
       />
+      <FlatList
+        data={workouts[selectedDate] || []}
+        renderItem={renderWorkout}
+        keyExtractor={(item, index) => index.toString()}
+        style={styles.list}
+      />
+      <Button title="Add Workout" onPress={() => setModalVisible(true)} />
+
+      {/* Modal for Adding Workout */}
       <Modal
         animationType="slide"
         transparent={true}
         visible={modalVisible}
         onRequestClose={() => setModalVisible(false)}
       >
-        <View style={styles.modalView}>
-          <Text style={styles.modalTitle}>Add New Workout</Text>
-          <View style={styles.pickerContainer}>
-            <Text style={styles.pickerLabel}>Split:</Text>
+        <View style={styles.modalBackground}>
+          <View style={styles.modalView}>
+            <Text style={styles.modalTitle}>Add New Workout</Text>
+            <Text style={styles.modalLabel}>Select Split</Text>
             <Picker
               selectedValue={split}
               style={styles.picker}
               onValueChange={(itemValue) => setSplit(itemValue)}
             >
+              <Picker.Item label="Select Split" value="" />
               <Picker.Item label="Push" value="Push" />
               <Picker.Item label="Pull" value="Pull" />
               <Picker.Item label="Legs" value="Legs" />
             </Picker>
+            <View style={styles.buttonContainer}>
+              <Button title="Create Workout" onPress={addWorkout} />
+              <Button title="Cancel" onPress={() => setModalVisible(false)} color="#FF6347" />
+            </View>
           </View>
-          <Button title="Create Workout" onPress={addWorkout} />
-          <Button title="Cancel" onPress={() => setModalVisible(false)} />
         </View>
       </Modal>
     </View>
@@ -112,66 +120,65 @@ const WorkoutScreen = ({ route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    backgroundColor: 'white',
-    padding: 10,
+    padding: 20,
+    backgroundColor: '#F0F8FF',
   },
-  dateText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 10,
+  list: {
+    marginTop: 20,
   },
   workoutContainer: {
-    width: '100%',
-    padding: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    padding: 15,
+    marginVertical: 5,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 3,
   },
-  splitText: {
+  workoutText: {
     fontSize: 16,
-    marginBottom: 10,
   },
-  exerciseContainer: {
+  buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
+    marginTop: 10,
   },
-  exerciseText: {
-    fontSize: 16,
+  modalBackground: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalView: {
-    margin: 20,
-    backgroundColor: 'white',
+    width: '90%',
+    backgroundColor: '#FFFFFF',
     borderRadius: 10,
-    padding: 35,
+    padding: 20,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 15,
   },
   modalTitle: {
     fontSize: 20,
+    fontWeight: 'bold',
     marginBottom: 15,
   },
-  pickerContainer: {
-    width: '80%',
+  modalLabel: {
+    fontSize: 16,
     marginBottom: 10,
   },
   picker: {
-    height: 50,
     width: '100%',
-    borderColor: 'gray',
+    height: 50,
+    marginBottom: 15,
+    borderColor: '#DDDDDD',
     borderWidth: 1,
-    borderRadius: 5,
-    paddingHorizontal: 8,
-  },
-  pickerLabel: {
-    fontSize: 16,
-    marginBottom: 5,
+    borderRadius: 10,
   },
 });
 

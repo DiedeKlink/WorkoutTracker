@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, Button, FlatList, StyleSheet, TextInput, Modal } from 'react-native';
+import { View, Text, Button, FlatList, StyleSheet, TextInput, Modal, TouchableOpacity } from 'react-native';
+import popularExercises from '../data/popularExercises';
 
 const WorkoutEditScreen = ({ route, navigation }) => {
   const { date, split } = route.params;
@@ -8,6 +9,7 @@ const WorkoutEditScreen = ({ route, navigation }) => {
   const [exerciseName, setExerciseName] = useState('');
   const [reps, setReps] = useState('');
   const [weight, setWeight] = useState('');
+  const [filteredExercises, setFilteredExercises] = useState([]);
 
   const addExercise = () => {
     if (!exerciseName || !reps || !weight) {
@@ -29,7 +31,26 @@ const WorkoutEditScreen = ({ route, navigation }) => {
     setExerciseName('');
     setReps('');
     setWeight('');
+    setFilteredExercises([]);
     setModalVisible(false);
+  };
+
+  const handleExerciseNameChange = (text) => {
+    setExerciseName(text);
+    if (text) {
+      setFilteredExercises(
+        popularExercises.filter(exercise =>
+          exercise.toLowerCase().includes(text.toLowerCase())
+        )
+      );
+    } else {
+      setFilteredExercises([]);
+    }
+  };
+
+  const selectExercise = (exercise) => {
+    setExerciseName(exercise);
+    setFilteredExercises([]);
   };
 
   const renderExercise = ({ item, index }) => (
@@ -41,7 +62,7 @@ const WorkoutEditScreen = ({ route, navigation }) => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Workout for {date}</Text>
-      <Text style={styles.splitText}>Split: {split}</Text>
+      <Text style={styles.splitText}>Split: {workout.split}</Text>
       <FlatList
         data={workout.exercises}
         renderItem={renderExercise}
@@ -61,8 +82,23 @@ const WorkoutEditScreen = ({ route, navigation }) => {
               style={styles.input}
               placeholder="Exercise Name"
               value={exerciseName}
-              onChangeText={setExerciseName}
+              onChangeText={handleExerciseNameChange}
             />
+            {filteredExercises.length > 0 && (
+              <FlatList
+                data={filteredExercises}
+                keyExtractor={(item) => item}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.autocompleteItem}
+                    onPress={() => selectExercise(item)}
+                  >
+                    <Text style={styles.autocompleteText}>{item}</Text>
+                  </TouchableOpacity>
+                )}
+                style={styles.autocompleteContainer}
+              />
+            )}
             <TextInput
               style={styles.input}
               placeholder="Reps"
@@ -149,6 +185,23 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     paddingHorizontal: 10,
     backgroundColor: '#F8F8F8',
+    fontSize: 16,
+  },
+  autocompleteContainer: {
+    width: '100%',
+    maxHeight: 150,
+    marginBottom: 15,
+    borderRadius: 10,
+    borderColor: '#DDDDDD',
+    borderWidth: 1,
+    backgroundColor: '#F8F8F8',
+  },
+  autocompleteItem: {
+    padding: 10,
+    borderBottomColor: '#DDDDDD',
+    borderBottomWidth: 1,
+  },
+  autocompleteText: {
     fontSize: 16,
   },
   buttonContainer: {
