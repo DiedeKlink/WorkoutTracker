@@ -1,22 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Button, FlatList, StyleSheet, TextInput, Modal, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, Button, FlatList, StyleSheet, Modal } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import CalendarPicker from 'react-native-calendar-picker';
 import { Picker } from '@react-native-picker/picker';
-import popularExercises from '../data/popularExercises'; // Correct path
+import { useNavigation } from '@react-navigation/native';
 
 const WorkoutScreen = ({ route }) => {
-  const { date } = route.params || {}; // Destructure date and provide fallback if route.params is undefined
+  const { date } = route.params || {};
   const [workout, setWorkout] = useState({});
   const [modalVisible, setModalVisible] = useState(false);
-  const [newExercise, setNewExercise] = useState({
-    name: '',
-    reps: '',
-    weight: '',
-    split: 'Push'
-  });
-  const [filteredExercises, setFilteredExercises] = useState([]);
+  const [split, setSplit] = useState('Push');
   const [selectedDate, setSelectedDate] = useState(date ? new Date(date) : new Date());
+  const navigation = useNavigation();
 
   useEffect(() => {
     const loadWorkout = async () => {
@@ -33,86 +27,57 @@ const WorkoutScreen = ({ route }) => {
     loadWorkout();
   }, []);
 
-  useEffect(() => {
-    if (newExercise.name === '') {
-      setFilteredExercises([]);
-    } else {
-      const regex = new RegExp(`^${newExercise.name}`, 'i');
-      setFilteredExercises(popularExercises.filter(exercise => regex.test(exercise)));
-    }
-  }, [newExercise.name]);
+  const addWorkout = () => {
+    const dateString = selectedDate.toISOString().split('T')[0];
 
-  const addWorkout = async () => {
-    if (newExercise.name.trim() === '' || newExercise.reps.trim() === '' || newExercise.weight.trim() === '') {
-      alert('Please enter exercise name, reps, and weight');
-      return;
-    }
-
-    const newExerciseEntry = { 
-      name: newExercise.name, 
-      reps: parseInt(newExercise.reps), 
-      weight: parseFloat(newExercise.weight)
+    // Create a new workout entry
+    const newWorkout = {
+      split,
+      exercises: [] // Initialize exercises as an empty array
     };
 
-    const dateString = selectedDate.toISOString().split('T')[0];
-    const updatedWorkout = { 
+    // Update the workout state with the new workout entry
+    const updatedWorkout = {
       ...workout,
-      [dateString]: {
-        split: newExercise.split,
-        exercises: [
-          ...(workout[dateString]?.exercises || []),
-          newExerciseEntry
-        ]
-      }
+      [dateString]: [...(workout[dateString] || []), newWorkout]
     };
 
     setWorkout(updatedWorkout);
-    setNewExercise({
-      name: '',
-      reps: '',
-      weight: '',
-      split: 'Push'
-    });
     setModalVisible(false);
 
     try {
-      await AsyncStorage.setItem('workout', JSON.stringify(updatedWorkout));
+      AsyncStorage.setItem('workout', JSON.stringify(updatedWorkout));
     } catch (e) {
       console.error(e);
     }
-  };
 
-  const handleDateChange = (date) => {
-    setSelectedDate(date);
+    navigation.navigate('WorkoutEdit', { date: dateString, split });
   };
 
   const dateString = selectedDate.toISOString().split('T')[0];
 
   return (
     <View style={styles.container}>
-      <CalendarPicker
-        onDateChange={handleDateChange}
-        selectedDate={selectedDate}
-        style={styles.calendar}
-      />
       <Text style={styles.dateText}>Selected Date: {dateString}</Text>
       <Button title="Add Workout" onPress={() => setModalVisible(true)} />
       <FlatList
-        data={Object.keys(workout)}
-        renderItem={({ item: itemDateString }) => (
-          itemDateString === dateString && workout[itemDateString] ? (
-            <View style={styles.workoutContainer}>
-              <Text style={styles.dateText}>Date: {itemDateString}</Text>
-              <Text style={styles.splitText}>Split: {workout[itemDateString].split}</Text>
-              {(workout[itemDateString].exercises || []).map((exercise, index) => (
-                <View key={index} style={styles.exerciseContainer}>
-                  <Text style={styles.exerciseText}>
-                    {exercise.name} - {exercise.reps} reps - {exercise.weight} kg
-                  </Text>
-                </View>
-              ))}
-            </View>
-          ) : null
+        data={workout[dateString] || []} // Ensure data is always an array
+        renderItem={({ item, index }) => (
+          <View key={index} style={styles.workoutContainer}>
+            <Text style={styles.dateText}>Date: {dateString}</Text>
+            <Text style={styles.splitText}>Split: {item.split}</Text>
+            {(item.exercises || []).map((exercise, idx) => (
+              <View key={idx} style={styles.exerciseContainer}>
+                <Text style={styles.exerciseText}>
+                  {exercise.name} - {exercise.reps} reps - {exercise.weight} kg
+                </Text>
+              </View>
+            ))}
+            <Button
+              title="Edit Workout"
+              onPress={() => navigation.navigate('WorkoutEdit', { date: dateString, split: item.split, index })}
+            />
+          </View>
         )}
         keyExtractor={(item, index) => index.toString()}
       />
@@ -124,50 +89,19 @@ const WorkoutScreen = ({ route }) => {
       >
         <View style={styles.modalView}>
           <Text style={styles.modalTitle}>Add New Workout</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Exercise Name"
-            value={newExercise.name}
-            onChangeText={(text) => setNewExercise(prev => ({ ...prev, name: text }))}
-          />
-          {filteredExercises.length > 0 && (
-            <View style={styles.autocompleteContainer}>
-              <ScrollView>
-                {filteredExercises.map((item, index) => (
-                  <TouchableOpacity key={index} onPress={() => setNewExercise(prev => ({ ...prev, name: item }))}>
-                    <Text style={styles.autocompleteItem}>{item}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          )}
-          <TextInput
-            style={styles.input}
-            placeholder="Reps"
-            value={newExercise.reps}
-            onChangeText={(text) => setNewExercise(prev => ({ ...prev, reps: text }))}
-            keyboardType="numeric"
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Weight (kg)"
-            value={newExercise.weight}
-            onChangeText={(text) => setNewExercise(prev => ({ ...prev, weight: text }))}
-            keyboardType="numeric"
-          />
           <View style={styles.pickerContainer}>
             <Text style={styles.pickerLabel}>Split:</Text>
             <Picker
-              selectedValue={newExercise.split}
+              selectedValue={split}
               style={styles.picker}
-              onValueChange={(itemValue) => setNewExercise(prev => ({ ...prev, split: itemValue }))}
+              onValueChange={(itemValue) => setSplit(itemValue)}
             >
               <Picker.Item label="Push" value="Push" />
               <Picker.Item label="Pull" value="Pull" />
               <Picker.Item label="Legs" value="Legs" />
             </Picker>
           </View>
-          <Button title="Add Exercise" onPress={addWorkout} />
+          <Button title="Create Workout" onPress={addWorkout} />
           <Button title="Cancel" onPress={() => setModalVisible(false)} />
         </View>
       </Modal>
@@ -181,10 +115,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'white',
     padding: 10,
-  },
-  calendar: {
-    width: '100%',
-    marginBottom: 20,
   },
   dateText: {
     fontSize: 18,
@@ -227,14 +157,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     marginBottom: 15,
   },
-  input: {
-    width: '80%',
-    borderColor: 'gray',
-    borderWidth: 1,
-    padding: 8,
-    marginBottom: 10,
-    borderRadius: 5,
-  },
   pickerContainer: {
     width: '80%',
     marginBottom: 10,
@@ -250,15 +172,6 @@ const styles = StyleSheet.create({
   pickerLabel: {
     fontSize: 16,
     marginBottom: 5,
-  },
-  autocompleteContainer: {
-    width: '80%',
-    maxHeight: 150,
-    marginBottom: 10,
-  },
-  autocompleteItem: {
-    padding: 10,
-    fontSize: 16,
   },
 });
 

@@ -1,22 +1,22 @@
-import * as React from 'react';
+import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import HomeScreen from './screens/HomeScreen';
 import WorkoutScreen from './screens/WorkoutScreen';
+import WorkoutEditScreen from './screens/WorkoutEditScreen';
 import CalendarScreen from './screens/CalendarScreen';
 
 const Stack = createStackNavigator();
 
-function App() {
+const App = () => {
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName="Home">
-        <Stack.Screen name="Home" component={HomeScreen} />
-        <Stack.Screen name="Workout" component={WorkoutScreen} />
+      <Stack.Navigator initialRouteName="Calendar">
         <Stack.Screen name="Calendar" component={CalendarScreen} />
+        <Stack.Screen name="Workout" component={WorkoutScreen} />
+        <Stack.Screen name="WorkoutEdit" component={WorkoutEditScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
-}
+};
 
 export default App;
