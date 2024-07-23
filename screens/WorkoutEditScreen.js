@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Button, FlatList, StyleSheet, TextInput, Modal, TouchableOpacity } from 'react-native';
+import { View, Text, Button, FlatList, StyleSheet, TextInput, Modal, TouchableOpacity, ScrollView } from 'react-native';
+import { format } from 'date-fns';
 import popularExercises from '../data/popularExercises';
 import { useWorkouts } from '../context/WorkoutContext';
 
@@ -11,7 +12,9 @@ const WorkoutEditScreen = ({ route, navigation }) => {
   const [reps, setReps] = useState('');
   const [weight, setWeight] = useState('');
   const [filteredExercises, setFilteredExercises] = useState([]);
-  const { updateWorkout } = useWorkouts();
+  const { updateWorkout, currentWorkout } = useWorkouts();
+
+  const formattedDate = format(new Date(date), 'dd-MM-yyyy');
 
   const addExercise = () => {
     if (!exerciseName || !reps || !weight) {
@@ -25,13 +28,17 @@ const WorkoutEditScreen = ({ route, navigation }) => {
       weight: parseFloat(weight),
     };
 
-    setExercises(prevExercises => [...prevExercises, newExercise]);
+    const updatedExercises = [...exercises, newExercise];
+    setExercises(updatedExercises);
 
     setExerciseName('');
     setReps('');
     setWeight('');
     setFilteredExercises([]);
     setModalVisible(false);
+
+    console.log(currentWorkout.id)
+    updateWorkout(date, currentWorkout.id, { ...workout, exercises: updatedExercises });
   };
 
   const handleExerciseNameChange = (text) => {
@@ -58,16 +65,9 @@ const WorkoutEditScreen = ({ route, navigation }) => {
     </View>
   );
 
-  useEffect(() => {
-    if (updateWorkout) {
-      const updatedWorkout = { ...workout, exercises };
-      updateWorkout(date, updatedWorkout);
-    }
-  }, [exercises]);
-
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Workout for {date}</Text>
+      <Text style={styles.title}>Workout for {formattedDate}</Text>
       <Text style={styles.splitText}>Split: {workout.split}</Text>
       <FlatList
         data={exercises}
@@ -93,12 +93,16 @@ const WorkoutEditScreen = ({ route, navigation }) => {
               style={styles.input}
             />
             {filteredExercises.length > 0 && (
-              <View style={styles.dropdown}>
-                {filteredExercises.map((exercise, index) => (
-                  <TouchableOpacity key={index} onPress={() => selectExercise(exercise)}>
-                    <Text style={styles.dropdownItem}>{exercise}</Text>
-                  </TouchableOpacity>
-                ))}
+              <View style={{ position: 'absolute', width: '100%', top: 105 }}>
+                <View style={styles.dropdown}>
+                  <ScrollView>
+                    {filteredExercises.map((exercise, index) => (
+                      <TouchableOpacity key={index} onPress={() => selectExercise(exercise)}>
+                        <Text style={styles.dropdownItem}>{exercise}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
               </View>
             )}
             <TextInput
@@ -175,6 +179,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 20,
     elevation: 15,
+    zIndex: 2,
   },
   modalTitle: {
     fontSize: 20,
@@ -188,16 +193,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 10,
     paddingHorizontal: 10,
-    marginBottom: 15,
+    marginBottom: 5,
   },
   dropdown: {
     width: '100%',
-    maxHeight: 150,
     backgroundColor: '#FFFFFF',
     borderColor: '#DDDDDD',
     borderWidth: 1,
     borderRadius: 10,
-    marginBottom: 15,
+    maxHeight: 150,
     zIndex: 1,
   },
   dropdownItem: {

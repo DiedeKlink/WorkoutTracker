@@ -1,9 +1,11 @@
+// WorkoutScreen.js
 import React, { useState } from 'react';
-import { View, Text, Button, FlatList, Modal, StyleSheet } from 'react-native';
+import { View, Text, Button, FlatList, Modal, StyleSheet, TouchableOpacity } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { Picker } from '@react-native-picker/picker';
-import { useWorkouts } from '../context/WorkoutContext'; // Zorg ervoor dat deze import correct is
-
+import { useWorkouts } from '../context/WorkoutContext';
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import { faCog } from '@fortawesome/free-solid-svg-icons';
 
 const WorkoutScreen = ({ route, navigation }) => {
   const { date } = route.params || {};
@@ -11,9 +13,7 @@ const WorkoutScreen = ({ route, navigation }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [split, setSplit] = useState('');
   const [selectedDate, setSelectedDate] = useState(initialDate);
-  const { workouts, addWorkout } = useWorkouts(); // Zorg ervoor dat useWorkouts correct werkt
-
-  console.log('addWorkout:', addWorkout); // Debugging log
+  const { workouts, addWorkout, removeWorkout } = useWorkouts();
 
   const addNewWorkout = () => {
     if (!split) {
@@ -27,34 +27,42 @@ const WorkoutScreen = ({ route, navigation }) => {
       exercises: [],
     };
 
-    if (typeof addWorkout === 'function') {
-      addWorkout(selectedDate, newWorkout);
-    } else {
-      console.error('addWorkout is not a function');
-    }
+    addWorkout(selectedDate, newWorkout);
 
     setModalVisible(false);
-    navigation.navigate('WorkoutEditScreen', { date: selectedDate, workout: newWorkout });
+    navigation.navigate('Edit workout', { date: selectedDate, workout: newWorkout });
   };
 
-  const removeWorkout = (workoutToRemove) => {
-    // Implement removal logic here
+  const handleRemoveWorkout = (workoutId) => {
+    removeWorkout(selectedDate, workoutId);
   };
 
   const renderWorkout = ({ item }) => (
-    <View style={styles.workoutContainer}>
+    <View style={styles.workoutContainer} >
       <Text style={styles.workoutText}>Split: {item.split}</Text>
-      <Button
+      <View style={{flex: 1, flexDirection: "row", justifyContent: "space-between", width: "50%"}}>
+      <Button style={{marginRight: "10px", position: 'relative'}}
         title="Edit"
-        onPress={() => navigation.navigate('WorkoutEditScreen', { date: selectedDate, workout: item })}
+        onPress={() => navigation.navigate('Edit workout', { date: selectedDate, workout: item })}
       />
-      <Button
+      <Button 
         title="Remove"
-        onPress={() => removeWorkout(item)}
+        onPress={() => handleRemoveWorkout(item.id)}
         color="#FF6347"
       />
+      </View>
     </View>
   );
+
+  React.useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity onPress={() => navigation.navigate('Settings')}>
+          <FontAwesomeIcon icon={faCog} size={24} style={styles.cogIcon} />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
 
   return (
     <View style={styles.container}>
@@ -69,9 +77,9 @@ const WorkoutScreen = ({ route, navigation }) => {
         }}
       />
       <FlatList
-        data={workouts[selectedDate] || []} // Zorg ervoor dat workouts niet undefined is
+        data={workouts[selectedDate] || []}
         renderItem={renderWorkout}
-        keyExtractor={(item, index) => index.toString()}
+        keyExtractor={(item) => item.id}
         style={styles.list}
       />
       <Button title="Add Workout" onPress={() => setModalVisible(true)} />
@@ -107,8 +115,6 @@ const WorkoutScreen = ({ route, navigation }) => {
   );
 };
 
-export default WorkoutScreen;
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -128,6 +134,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 5,
     elevation: 3,
+    flex: 1,
+    justifyContent: 'flex-end',
+    position: 'relative',
   },
   workoutText: {
     fontSize: 16,
@@ -173,6 +182,9 @@ const styles = StyleSheet.create({
     width: '100%',
     marginTop: 15,
   },
+  cogIcon: {
+    marginRight: 15,
+  },
 });
 
-
+export default WorkoutScreen;
