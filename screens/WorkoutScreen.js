@@ -1,5 +1,5 @@
 // WorkoutScreen.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, Button, FlatList, Modal, StyleSheet, TouchableOpacity } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { Picker } from '@react-native-picker/picker';
@@ -14,6 +14,19 @@ const WorkoutScreen = ({ route, navigation }) => {
   const [split, setSplit] = useState('');
   const [selectedDate, setSelectedDate] = useState(initialDate);
   const { workouts, addWorkout, removeWorkout } = useWorkouts();
+  const [markedDates, setMarkedDates] = useState({});
+
+  useEffect(() => {
+    const newMarkedDates = {};
+    Object.keys(workouts).forEach(date => {
+      newMarkedDates[date] = {
+        marked: true,
+        dotColor: 'orange',
+        activeOpacity: 0,
+      };
+    });
+    setMarkedDates(newMarkedDates);
+  }, [workouts]);
 
   const addNewWorkout = () => {
     if (!split) {
@@ -38,18 +51,19 @@ const WorkoutScreen = ({ route, navigation }) => {
   };
 
   const renderWorkout = ({ item }) => (
-    <View style={styles.workoutContainer} >
+    <View style={styles.workoutContainer}>
       <Text style={styles.workoutText}>Split: {item.split}</Text>
-      <View style={{flex: 1, flexDirection: "row", justifyContent: "space-between", width: "50%"}}>
-      <Button style={{marginRight: "10px", position: 'relative'}}
-        title="Edit"
-        onPress={() => navigation.navigate('Edit workout', { date: selectedDate, workout: item })}
-      />
-      <Button 
-        title="Remove"
-        onPress={() => handleRemoveWorkout(item.id)}
-        color="#FF6347"
-      />
+      <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', width: '50%' }}>
+        <Button
+          style={{ marginRight: '10px', position: 'relative' }}
+          title="Edit"
+          onPress={() => navigation.navigate('Edit workout', { date: selectedDate, workout: item })}
+        />
+        <Button
+          title="Remove"
+          onPress={() => handleRemoveWorkout(item.id)}
+          color="#FF6347"
+        />
       </View>
     </View>
   );
@@ -73,7 +87,8 @@ const WorkoutScreen = ({ route, navigation }) => {
           navigation.setParams({ date: day.dateString });
         }}
         markedDates={{
-          [selectedDate]: { selected: true, selectedColor: '#00BFFF' }
+          ...markedDates,
+          [selectedDate]: { selected: true, selectedColor: '#00BFFF' },
         }}
       />
       <FlatList
@@ -105,8 +120,8 @@ const WorkoutScreen = ({ route, navigation }) => {
               <Picker.Item label="Legs" value="Legs" />
             </Picker>
             <View style={styles.buttonContainer}>
-              <Button title="Create Workout" onPress={addNewWorkout} />
-              <Button title="Cancel" onPress={() => setModalVisible(false)} color="#FF6347" />
+              <Button title="Create Workout" onPress={addNewWorkout} style={{ flex: 1 }} />
+              <Button color="#FF6347" title="Cancel" onPress={() => setModalVisible(false)} />
             </View>
           </View>
         </View>

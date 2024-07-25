@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, Button, FlatList, StyleSheet, TextInput, Modal, TouchableOpacity, ScrollView } from 'react-native';
 import { format } from 'date-fns';
 import popularExercises from '../data/popularExercises';
@@ -16,28 +16,51 @@ const WorkoutEditScreen = ({ route, navigation }) => {
 
   const formattedDate = format(new Date(date), 'dd-MM-yyyy');
 
-  const addExercise = () => {
-    if (!exerciseName || !reps || !weight) {
+  const addSet = (exerciseIndex) => {
+    if (!reps || !weight) {
       alert('Please fill in all fields.');
+      return;
+    }
+
+    const newSet = {
+      weight: parseFloat(weight),
+      reps: parseInt(reps, 10),
+    };
+
+    const updatedExercises = exercises.map((exercise, index) => {
+      if (index === exerciseIndex) {
+        return {
+          ...exercise,
+          sets: [...exercise.sets, newSet],
+        };
+      }
+      return exercise;
+    });
+
+    setExercises(updatedExercises);
+    setReps('');
+    setWeight('');
+    updateWorkout(date, currentWorkout.id, { ...workout, exercises: updatedExercises });
+  };
+
+  const addExercise = () => {
+    if (!exerciseName) {
+      alert('Please enter an exercise name.');
       return;
     }
 
     const newExercise = {
       name: exerciseName,
-      reps: parseInt(reps, 10),
-      weight: parseFloat(weight),
+      sets: [],
     };
 
     const updatedExercises = [...exercises, newExercise];
     setExercises(updatedExercises);
 
     setExerciseName('');
-    setReps('');
-    setWeight('');
     setFilteredExercises([]);
     setModalVisible(false);
 
-    console.log(currentWorkout.id)
     updateWorkout(date, currentWorkout.id, { ...workout, exercises: updatedExercises });
   };
 
@@ -61,7 +84,27 @@ const WorkoutEditScreen = ({ route, navigation }) => {
 
   const renderExercise = ({ item, index }) => (
     <View key={index} style={styles.exerciseContainer}>
-      <Text style={styles.exerciseText}>{item.name} - {item.reps} reps - {item.weight} kg</Text>
+      <Text style={styles.exerciseText}>{item.name}</Text>
+      {item.sets.map((set, setIndex) => (
+        <Text key={setIndex} style={styles.setText}>Set {setIndex + 1}: {set.weight} kg x {set.reps} reps</Text>
+      ))}
+      <View style={styles.setInputContainer}>
+        <TextInput
+          placeholder="Weight"
+          value={weight}
+          onChangeText={setWeight}
+          keyboardType="numeric"
+          style={styles.setInput}
+        />
+        <TextInput
+          placeholder="Reps"
+          value={reps}
+          onChangeText={setReps}
+          keyboardType="numeric"
+          style={styles.setInput}
+        />
+        <Button title="Add Set" onPress={() => addSet(index)} />
+      </View>
     </View>
   );
 
@@ -105,20 +148,6 @@ const WorkoutEditScreen = ({ route, navigation }) => {
                 </View>
               </View>
             )}
-            <TextInput
-              placeholder="Reps"
-              value={reps}
-              onChangeText={setReps}
-              keyboardType="numeric"
-              style={styles.input}
-            />
-            <TextInput
-              placeholder="Weight (kg)"
-              value={weight}
-              onChangeText={setWeight}
-              keyboardType="numeric"
-              style={styles.input}
-            />
             <View style={styles.buttonContainer}>
               <Button title="Add" onPress={addExercise} />
               <Button title="Cancel" onPress={() => setModalVisible(false)} color="#FF6347" />
@@ -161,6 +190,24 @@ const styles = StyleSheet.create({
   },
   exerciseText: {
     fontSize: 16,
+  },
+  setText: {
+    fontSize: 14,
+    marginLeft: 10,
+  },
+  setInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  setInput: {
+    width: '30%',
+    height: 40,
+    borderColor: '#DDDDDD',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    marginRight: 10,
   },
   modalBackground: {
     flex: 1,
