@@ -9,14 +9,54 @@ const WorkoutEditScreen = ({ route, navigation }) => {
   const [exercises, setExercises] = useState(workout.exercises || []);
   const [modalVisible, setModalVisible] = useState(false);
   const [exerciseName, setExerciseName] = useState('');
-  const [reps, setReps] = useState('');
-  const [weight, setWeight] = useState('');
   const [filteredExercises, setFilteredExercises] = useState([]);
+  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(null);
+  const [exerciseData, setExerciseData] = useState({}); // Tracks weight and reps for each exercise
   const { updateWorkout, currentWorkout } = useWorkouts();
 
   const formattedDate = format(new Date(date), 'dd-MM-yyyy');
 
+  const handleWeightChange = (text, exerciseIndex) => {
+    setExerciseData(prevData => {
+      const updatedData = { ...prevData };
+      updatedData[exerciseIndex] = {
+        ...updatedData[exerciseIndex],
+        weight: text
+      };
+      setExercises(prevExercises => {
+        const newExercises = [...prevExercises];
+        newExercises[exerciseIndex] = {
+          ...newExercises[exerciseIndex],
+          weight: text
+        };
+        return newExercises;
+      });
+      return updatedData;
+    });
+  };
+
+  const handleRepsChange = (text, exerciseIndex) => {
+    setExerciseData(prevData => {
+      const updatedData = { ...prevData };
+      updatedData[exerciseIndex] = {
+        ...updatedData[exerciseIndex],
+        reps: text
+      };
+      setExercises(prevExercises => {
+        const newExercises = [...prevExercises];
+        newExercises[exerciseIndex] = {
+          ...newExercises[exerciseIndex],
+          reps: text
+        };
+        return newExercises;
+      });
+      return updatedData;
+    });
+  };
+
   const addSet = (exerciseIndex) => {
+    const { reps, weight } = exerciseData[exerciseIndex] || {};
+
     if (!reps || !weight) {
       alert('Please fill in all fields.');
       return;
@@ -38,8 +78,11 @@ const WorkoutEditScreen = ({ route, navigation }) => {
     });
 
     setExercises(updatedExercises);
-    setReps('');
-    setWeight('');
+    setExerciseData(prevData => ({
+      ...prevData,
+      [exerciseIndex]: { weight: '', reps: '' }
+    }));
+    setCurrentExerciseIndex(null);
     updateWorkout(date, currentWorkout.id, { ...workout, exercises: updatedExercises });
   };
 
@@ -91,15 +134,15 @@ const WorkoutEditScreen = ({ route, navigation }) => {
       <View style={styles.setInputContainer}>
         <TextInput
           placeholder="Weight"
-          value={weight}
-          onChangeText={setWeight}
+          value={exerciseData[index]?.weight || ''}
+          onChangeText={(text) => handleWeightChange(text, index)}
           keyboardType="numeric"
           style={styles.setInput}
         />
         <TextInput
           placeholder="Reps"
-          value={reps}
-          onChangeText={setReps}
+          value={exerciseData[index]?.reps || ''}
+          onChangeText={(text) => handleRepsChange(text, index)}
           keyboardType="numeric"
           style={styles.setInput}
         />
