@@ -1,0 +1,4 @@
+TODO
+
+-Weight en reps velden leegmaken na Add set
+-Meerdere workouts per dag is bugged, bijv. bij verwijderen

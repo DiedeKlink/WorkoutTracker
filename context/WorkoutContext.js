@@ -62,12 +62,14 @@ export const WorkoutProvider = ({ children }) => {
   };
 
   const updateWorkout = (date, workoutId, updatedWorkout) => {
+    if (!date || !workoutId || !updatedWorkout) return;
+
     setWorkouts(prevWorkouts => {
       const updatedWorkouts = {
         ...prevWorkouts,
-        [date]: prevWorkouts[date].map(workout =>
-          currentWorkout.id === workoutId ? { ...updatedWorkout, id: workoutId } : workout
-        ),
+        [date]: prevWorkouts[date]?.map(workout =>
+          workout.id === workoutId ? { ...updatedWorkout, id: workoutId } : workout
+        ) || [],
       };
       updateMarkedDates(updatedWorkouts);
       return updatedWorkouts;
@@ -75,10 +77,12 @@ export const WorkoutProvider = ({ children }) => {
   };
 
   const removeWorkout = (date, workoutId) => {
+    if (!date || !workoutId) return;
+
     setWorkouts(prevWorkouts => {
       const updatedWorkouts = {
         ...prevWorkouts,
-        [date]: prevWorkouts[date].filter(workout => workout.id !== workoutId),
+        [date]: prevWorkouts[date]?.filter(workout => workout.id !== workoutId) || [],
       };
 
       // If there are no workouts left on the date, remove the date from the object
@@ -94,7 +98,7 @@ export const WorkoutProvider = ({ children }) => {
   const updateMarkedDates = (workouts) => {
     const dates = {};
     for (const date in workouts) {
-      if (workouts[date].length > 0) {
+      if (workouts[date]?.length > 0) {
         dates[date] = { marked: true };
       }
     }

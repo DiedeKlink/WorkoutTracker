@@ -1,62 +1,43 @@
 import React, { useState } from 'react';
-import { View, Text, Button, FlatList, StyleSheet, TextInput, Modal, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, Button, FlatList, StyleSheet, TextInput, Modal, TouchableOpacity, ScrollView, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { format } from 'date-fns';
 import popularExercises from '../data/popularExercises';
 import { useWorkouts } from '../context/WorkoutContext';
 
 const WorkoutEditScreen = ({ route, navigation }) => {
   const { date, workout } = route.params || {};
-  const [exercises, setExercises] = useState(workout.exercises || []);
+  const [exercises, setExercises] = useState(workout?.exercises || []);
   const [modalVisible, setModalVisible] = useState(false);
   const [exerciseName, setExerciseName] = useState('');
   const [filteredExercises, setFilteredExercises] = useState([]);
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(null);
-  const [exerciseData, setExerciseData] = useState({}); // Tracks weight and reps for each exercise
+  const [weight, setWeight] = useState('');
+  const [reps, setReps] = useState('');
   const { updateWorkout, currentWorkout } = useWorkouts();
 
   const formattedDate = format(new Date(date), 'dd-MM-yyyy');
 
-  const handleWeightChange = (text, exerciseIndex) => {
-    setExerciseData(prevData => {
-      const updatedData = { ...prevData };
-      updatedData[exerciseIndex] = {
-        ...updatedData[exerciseIndex],
-        weight: text
-      };
-      setExercises(prevExercises => {
-        const newExercises = [...prevExercises];
-        newExercises[exerciseIndex] = {
-          ...newExercises[exerciseIndex],
-          weight: text
-        };
-        return newExercises;
-      });
-      return updatedData;
-    });
+  const handleWeightChange = (text, index) => {
+    const newExercises = [...exercises];
+    newExercises[index] = {
+      ...newExercises[index],
+      weight: text
+    };
+    setExercises(newExercises);
+    setWeight(text);
   };
 
-  const handleRepsChange = (text, exerciseIndex) => {
-    setExerciseData(prevData => {
-      const updatedData = { ...prevData };
-      updatedData[exerciseIndex] = {
-        ...updatedData[exerciseIndex],
-        reps: text
-      };
-      setExercises(prevExercises => {
-        const newExercises = [...prevExercises];
-        newExercises[exerciseIndex] = {
-          ...newExercises[exerciseIndex],
-          reps: text
-        };
-        return newExercises;
-      });
-      return updatedData;
-    });
+  const handleRepsChange = (text, index) => {
+    const newExercises = [...exercises];
+    newExercises[index] = {
+      ...newExercises[index],
+      reps: text
+    };
+    setExercises(newExercises);
+    setReps(text);
   };
 
   const addSet = (exerciseIndex) => {
-    const { reps, weight } = exerciseData[exerciseIndex] || {};
-
     if (!reps || !weight) {
       alert('Please fill in all fields.');
       return;
@@ -78,12 +59,14 @@ const WorkoutEditScreen = ({ route, navigation }) => {
     });
 
     setExercises(updatedExercises);
-    setExerciseData(prevData => ({
-      ...prevData,
-      [exerciseIndex]: { weight: '', reps: '' }
-    }));
+    setReps('');
+    setWeight('');
     setCurrentExerciseIndex(null);
-    updateWorkout(date, currentWorkout.id, { ...workout, exercises: updatedExercises });
+
+    const workoutId = workout?.id || currentWorkout?.id;
+    if (workoutId) {
+      updateWorkout(date, workoutId, { ...workout, exercises: updatedExercises });
+    }
   };
 
   const addExercise = () => {
@@ -104,7 +87,10 @@ const WorkoutEditScreen = ({ route, navigation }) => {
     setFilteredExercises([]);
     setModalVisible(false);
 
-    updateWorkout(date, currentWorkout.id, { ...workout, exercises: updatedExercises });
+    const workoutId = workout?.id || currentWorkout?.id;
+    if (workoutId) {
+      updateWorkout(date, workoutId, { ...workout, exercises: updatedExercises });
+    }
   };
 
   const handleExerciseNameChange = (text) => {
@@ -121,8 +107,12 @@ const WorkoutEditScreen = ({ route, navigation }) => {
   };
 
   const selectExercise = (exercise) => {
-    setExerciseName(exercise);
-    setFilteredExercises([]);
+    Keyboard.dismiss(); // Dismiss the keyboard
+    setTimeout(() => {  // Ensure keyboard dismissal before updating state
+      setExerciseName(exercise);
+      setFilteredExercises([]);
+      setModalVisible(false);  // Close the modal after selecting an exercise
+    }, 200);
   };
 
   const renderExercise = ({ item, index }) => (
@@ -134,14 +124,14 @@ const WorkoutEditScreen = ({ route, navigation }) => {
       <View style={styles.setInputContainer}>
         <TextInput
           placeholder="Weight"
-          value={exerciseData[index]?.weight || ''}
+          value={item.weight || ''}
           onChangeText={(text) => handleWeightChange(text, index)}
           keyboardType="numeric"
           style={styles.setInput}
         />
         <TextInput
           placeholder="Reps"
-          value={exerciseData[index]?.reps || ''}
+          value={item.reps || ''}
           onChangeText={(text) => handleRepsChange(text, index)}
           keyboardType="numeric"
           style={styles.setInput}
@@ -154,7 +144,10 @@ const WorkoutEditScreen = ({ route, navigation }) => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Workout for {formattedDate}</Text>
-      <Text style={styles.splitText}>Split: {workout.split}</Text>
+      <Text style={styles.splitText}>Split: {workout?.split || 'Unknown'}</Text>
+      <Text>workout.id: {workout?.id || 'N/A'}</Text>
+      <Text>currentWorkout.id: {currentWorkout?.id || 'N/A'}</Text>
+
       <FlatList
         data={exercises}
         renderItem={renderExercise}
@@ -163,41 +156,47 @@ const WorkoutEditScreen = ({ route, navigation }) => {
       />
       <Button title="Add Exercise" onPress={() => setModalVisible(true)} />
 
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalBackground}>
-          <View style={styles.modalView}>
-            <Text style={styles.modalTitle}>Add Exercise</Text>
-            <TextInput
-              placeholder="Exercise Name"
-              value={exerciseName}
-              onChangeText={handleExerciseNameChange}
-              style={styles.input}
-            />
-            {filteredExercises.length > 0 && (
-              <View style={{ position: 'absolute', width: '100%', top: 105 }}>
-                <View style={styles.dropdown}>
-                  <ScrollView>
-                    {filteredExercises.map((exercise, index) => (
-                      <TouchableOpacity key={index} onPress={() => selectExercise(exercise)}>
-                        <Text style={styles.dropdownItem}>{exercise}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
+      {modalVisible && (
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={modalVisible}
+          onRequestClose={() => setModalVisible(false)}
+        >
+          <ScrollView contentContainerStyle={{ flexGrow: 1 }}
+            keyboardShouldPersistTaps='handled'
+          >
+            <View style={styles.modalBackground}>
+              <View style={styles.modalView}>
+                <Text style={styles.modalTitle}>Add Exercise</Text>
+                <TextInput
+                  placeholder="Exercise Name"
+                  value={exerciseName}
+                  onChangeText={handleExerciseNameChange}
+                  style={styles.input}
+                />
+                {filteredExercises.length > 0 && (
+                  <View style={{ position: 'absolute', width: '100%', top: 105 }}>
+                    <View style={styles.dropdown}>
+                      <View>
+                        {filteredExercises.map((exercise, index) => (
+                          <TouchableOpacity key={index} onPress={() => [selectExercise(exercise), addExercise]}>
+                            <Text style={styles.dropdownItem}>{exercise}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+                  </View>
+                )}
+                <View style={styles.buttonContainer}>
+                  <Button title="Add" onPress={addExercise} />
+                  <Button title="Cancel" onPress={() => setModalVisible(false)} color="#FF6347" />
                 </View>
               </View>
-            )}
-            <View style={styles.buttonContainer}>
-              <Button title="Add" onPress={addExercise} />
-              <Button title="Cancel" onPress={() => setModalVisible(false)} color="#FF6347" />
             </View>
-          </View>
-        </View>
-      </Modal>
+          </ScrollView>
+        </Modal>
+      )}
     </View>
   );
 };
@@ -270,6 +269,7 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 15,
     zIndex: 2,
+    marginTop: 50,  // Add this line to fix the modal position
   },
   modalTitle: {
     fontSize: 20,
@@ -279,31 +279,33 @@ const styles = StyleSheet.create({
   input: {
     width: '100%',
     height: 40,
-    borderColor: '#DDDDDD',
+    borderColor: 'gray',
     borderWidth: 1,
     borderRadius: 10,
     paddingHorizontal: 10,
-    marginBottom: 5,
+    marginBottom: 20,
+    marginTop: 20,
   },
   dropdown: {
+    position: 'absolute',
     width: '100%',
-    backgroundColor: '#FFFFFF',
-    borderColor: '#DDDDDD',
+    backgroundColor: 'white',
+    borderColor: 'gray',
     borderWidth: 1,
-    borderRadius: 10,
-    maxHeight: 150,
-    zIndex: 1,
+    borderTopWidth: 0,
+    maxHeight: 200,
+    overflow: 'scroll',
+    zIndex: 2,
   },
   dropdownItem: {
     padding: 10,
-    borderBottomColor: '#DDDDDD',
     borderBottomWidth: 1,
+    borderBottomColor: '#DDDDDD',
   },
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
-    marginTop: 15,
   },
 });
 
